@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import parse from 'html-react-parser';
 import { BodyContent } from '@/types/timeline';
 
 interface AboutSectionProps {
@@ -38,8 +39,9 @@ const AboutSection: React.FC<AboutSectionProps> = ({ content }) => {
                      [&>h1]:text-2xl [&>h1]:md:text-3xl [&>h1]:mb-6
                      [&>p]:text-base [&>p]:md:text-lg [&>p]:mb-4
                      [&>ul]:mb-6 [&>li]:mb-2"
-            dangerouslySetInnerHTML={{ __html: content.About }}
-          />
+          >
+            {parse(content.About)}
+          </div>
         </div>
       </div>
     </section>
