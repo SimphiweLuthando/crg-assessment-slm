@@ -109,7 +109,6 @@ const Timeline: React.FC<TimelineProps> = ({ items }) => {
     
     if (isMobile) {
       audio.preload = 'none'; 
-      audio.crossOrigin = 'anonymous';
     } else {
       audio.preload = 'metadata'; 
     }
@@ -155,16 +154,48 @@ const Timeline: React.FC<TimelineProps> = ({ items }) => {
     audio.addEventListener('error', (e) => {
       console.error('Audio error for:', item.Title, e);
       setIsLoading(false);
-      setAudioError('Failed to load audio');
+      
+      const target = e.target as HTMLAudioElement;
+      const error = target.error;
+      
+      if (error) {
+        switch (error.code) {
+          case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+            setAudioError('Audio format not supported on this device. Please try a different browser.');
+            break;
+          case MediaError.MEDIA_ERR_NETWORK:
+            setAudioError('Network error loading audio. Please check your connection.');
+            break;
+          case MediaError.MEDIA_ERR_DECODE:
+            setAudioError('Audio file corrupted or unsupported codec.');
+            break;
+          case MediaError.MEDIA_ERR_ABORTED:
+            setAudioError('Audio loading was aborted.');
+            break;
+          default:
+            setAudioError('Failed to load audio. Please try again.');
+        }
+      } else {
+        setAudioError('Failed to load audio. Please try again.');
+      }
     });
 
     if (isMobile) {
       audio.addEventListener('stalled', () => {
         console.warn('Audio stalled for:', item.Title);
+        if (playingId === item.Id) {
+          setAudioError('Audio loading stalled. Please check your connection.');
+        }
       });
 
       audio.addEventListener('suspend', () => {
         console.warn('Audio suspended for:', item.Title);
+      });
+
+      audio.addEventListener('loadstart', () => {
+        if (playingId === item.Id) {
+          setIsLoading(true);
+        }
       });
     }
 
@@ -188,7 +219,7 @@ const Timeline: React.FC<TimelineProps> = ({ items }) => {
           updateProgress();
         } else {
           currentAudio.pause();
-         
+          
           if (animationRef.current) {
             cancelAnimationFrame(animationRef.current);
             animationRef.current = undefined;
@@ -204,11 +235,10 @@ const Timeline: React.FC<TimelineProps> = ({ items }) => {
       return;
     }
 
-    
     if (currentAudio) {
       currentAudio.pause();
       currentAudio.currentTime = 0;
-   
+    
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
         animationRef.current = undefined;
@@ -226,7 +256,6 @@ const Timeline: React.FC<TimelineProps> = ({ items }) => {
     }
 
     try {
-     
       setCurrentAudio(audio);
       currentAudioRef.current = audio;
       setPlayingId(item.Id);
@@ -237,9 +266,21 @@ const Timeline: React.FC<TimelineProps> = ({ items }) => {
       
       setCurrentTime(audio.currentTime);
       
-
-      if (isMobile && audio.readyState < 2) {
-        audio.load();
+      if (isMobile) {
+        if (audio.readyState < 2) {
+          audio.load();
+        }
+        
+        await new Promise(resolve => {
+          const checkReady = () => {
+            if (audio.readyState >= 2) {
+              resolve(true);
+            } else {
+              setTimeout(checkReady, 100);
+            }
+          };
+          checkReady();
+        });
       }
       
       await audio.play();
@@ -249,17 +290,17 @@ const Timeline: React.FC<TimelineProps> = ({ items }) => {
       console.error('Play error:', error);
       setIsLoading(false);
       
-
       const errorMessage = error instanceof Error ? error.name : 'UnknownError';
+      const errorString = error instanceof Error ? error.message : 'Unknown error';
+      
       if (errorMessage === 'NotAllowedError') {
-        setAudioError(isMobile ? 
-          'Audio playback blocked. Please enable audio in your browser.' :
-          'Audio playback blocked. Click to enable audio.'
-        );
-      } else if (errorMessage === 'NotSupportedError') {
-        setAudioError('Audio format not supported on this device.');
+        setAudioError('Audio playback blocked. Please enable audio and try again.');
+      } else if (errorMessage === 'NotSupportedError' || errorString.includes('not supported')) {
+        setAudioError('Audio format not supported on this device. Try using Chrome or Firefox.');
+      } else if (errorString.includes('network') || errorString.includes('fetch')) {
+        setAudioError('Network error. Please check your internet connection.');
       } else {
-        setAudioError('Failed to play audio. Please check your connection.');
+        setAudioError(`Playback failed: ${errorString.slice(0, 50)}...`);
       }
     }
   };
