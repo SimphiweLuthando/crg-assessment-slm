@@ -130,6 +130,9 @@ The application will be built into the `.next` folder and can be deployed to any
 
 ![Dr. Arthur Frost Timeline Application](screenshot.png)
 
+You can see a live demo [here](https://crg-assessment-slm.vercel.app/)
+
+
 *The application displays a modern timeline interface with cards for each piece of content, featuring images, audio playback, and category organization.*
 
 ---
